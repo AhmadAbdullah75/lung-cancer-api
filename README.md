@@ -11,7 +11,22 @@ built on `Ali T.M. et al., 2025` (DOI: [10.1155/bmri/9961773](https://doi.org/10
 **Docker image:** https://hub.docker.com/r/ahmadabdullah3027/lung-cancer-api
 
 ---
+## Background
 
+A few months ago, I replicated and improved on the original paper's ML
+pipeline as an academic project — including a full replication report and an
+improvisation study that added ensemble diversity, hyperparameter tuning,
+and data-quality fixes (e.g. discovering and removing 848 duplicate rows
+that had been inflating the reported accuracy). That work lives here:
+
+https://github.com/AhmadAbdullah75/lung-cancer-replication-improvisation
+
+This project picks up from there — taking the trained model out of a
+notebook and turning it into an interactive, production-style application
+using FastAPI and Streamlit, so anyone can use it through a real interface
+instead of running code manually.
+
+---
 ## What this is
 
 This project takes a trained scikit-learn model (Random Forest + SVM + Logistic
