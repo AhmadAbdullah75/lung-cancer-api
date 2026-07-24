@@ -1,0 +1,28 @@
+[project]
+name = "lung-cancer-api"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "scikit-learn==1.8.0",
+    "imbalanced-learn>=0.14.0",
+    "pandas==2.2.2",
+    "numpy==1.26.4",
+    "joblib==1.4.2",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+# Only "api/" is a real installable Python package.
+# "model/" holds .sav data files and "frontend/" is a separate Streamlit
+# app - without this, setuptools sees three top-level folders and can't
+# guess which one is the package, causing the build to fail.
+include = ["api*"]
+
+[tool.fastapi]
+# Your app object lives in api/main.py, not the default main.py/app.py/app/main.py
+# locations FastAPI Cloud auto-detects - this points it there explicitly.
+entrypoint = "api.main:app"
