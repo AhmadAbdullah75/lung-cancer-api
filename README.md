@@ -5,7 +5,7 @@ A full end-to-end deployment of a replicated & improved Voting Ensemble model
 built on `Ali T.M. et al., 2025` (DOI: [10.1155/bmri/9961773](https://doi.org/10.1155/bmri/9961773)).
 
 **Live API:** https://lung-cancer-api.fastapicloud.dev/docs
-**Live frontend:** _add your Streamlit Community Cloud URL here once deployed_
+**Live frontend:** https://lung-cancer-api.streamlit.app/
 **Docker image:** https://hub.docker.com/r/ahmadabdullah3027/lung-cancer-api
 
 ---
