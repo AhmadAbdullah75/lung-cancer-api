@@ -6,6 +6,7 @@ built on `Ali T.M. et al., 2025` (DOI: [10.1155/bmri/9961773](https://doi.org/10
 
 **Live API:** https://lung-cancer-api.fastapicloud.dev/docs
 **Live frontend:** _add your Streamlit Community Cloud URL here once deployed_
+**Docker image:** https://hub.docker.com/r/ahmadabdullah3027/lung-cancer-api
 
 ---
 
@@ -193,7 +194,23 @@ Key config that makes this work, in `pyproject.toml`:
 
 ### Docker Hub
 
-See the section below for the full push walkthrough.
+Pull and run the API image directly, no build needed:
+
+```bash
+docker pull ahmadabdullah3027/lung-cancer-api:latest
+docker run -p 8000:8000 ahmadabdullah3027/lung-cancer-api:latest
+```
+
+Image page: https://hub.docker.com/r/ahmadabdullah3027/lung-cancer-api
+
+The model files (`lung_model.sav`, `lung_selector.sav`) are baked into this
+image at build time via `Dockerfile.api`, so it runs standalone with no
+extra setup. To swap in a different model without rebuilding, mount a
+volume over `/app/model`:
+
+```bash
+docker run -p 8000:8000 -v $(pwd)/model:/app/model ahmadabdullah3027/lung-cancer-api:latest
+```
 
 ---
 
