@@ -1,19 +1,102 @@
-# Lung Cancer Detection — Deployed API + Frontend
+# 🫁 Lung Cancer Risk Prediction — Deployed ML System
 
-FastAPI + Streamlit deployment of the replicated & improved Voting Ensemble
-model (RF + SVM + LR) from `Ali T.M. et al., 2025` (DOI: 10.1155/bmri/9961773).
+A full end-to-end deployment of a replicated & improved Voting Ensemble model
+(Random Forest + SVM + Logistic Regression) for lung cancer risk classification,
+built on `Ali T.M. et al., 2025` (DOI: [10.1155/bmri/9961773](https://doi.org/10.1155/bmri/9961773)).
 
-## 1. Add your trained model files
+**Live API:** https://lung-cancer-api.fastapicloud.dev/docs
+**Live frontend:** _add your Streamlit Community Cloud URL here once deployed_
 
-Copy your existing joblib artifacts into `model/` — no retraining needed,
-`.sav` and `.pkl` are the same joblib format:
+---
+
+## What this is
+
+This project takes a trained scikit-learn model (Random Forest + SVM + Logistic
+Regression Voting Ensemble, SMOTE-balanced, RF-based feature selection) from an
+academic replication study and turns it into a real, publicly usable product:
+
+- **FastAPI backend** — serves predictions via a `/predict` REST endpoint, with
+  automatic input validation and interactive Swagger docs
+- **Streamlit frontend** — a custom-designed dark glassmorphic UI for entering
+  patient data and viewing risk predictions with live gauge charts
+- **Dockerized** — both services containerize cleanly for local development and
+  are also pushed to Docker Hub as a portable image
+- **Cloud-deployed** — API on FastAPI Cloud, frontend on Streamlit Community Cloud,
+  both on free tiers
+
+---
+
+## Architecture
 
 ```
-model/lung_model.sav
-model/lung_selector.sav
+                    ┌─────────────────────┐
+   Patient data →   │   Streamlit UI       │
+                    │  (frontend/app.py)   │
+                    └──────────┬───────────┘
+                               │ POST /predict
+                               ▼
+                    ┌─────────────────────┐
+                    │   FastAPI backend     │
+                    │   (api/main.py)       │
+                    │                       │
+                    │  SelectFromModel  →   │
+                    │  (23 → 12 features)   │
+                    │         ↓             │
+                    │  StandardScaler →     │
+                    │  SMOTE →              │
+                    │  VotingClassifier     │
+                    │  (RF + SVM + LR)      │
+                    └──────────┬───────────┘
+                               │
+                    ┌──────────┴───────────┐
+                    │  model/lung_model.sav │
+                    │  model/lung_selector.sav │
+                    └───────────────────────┘
 ```
 
-## 2. Run locally without Docker (fastest way to test)
+---
+
+## Model details
+
+- **Dataset**: `LungcancerDs.csv` (Cancer Patient Dataset), 1,000 patients,
+  23 clinical/exposure features, 3-class target (Low / Medium / High)
+- **Feature selection**: `SelectFromModel` (RandomForestClassifier,
+  threshold='median') → reduces 23 raw features to 12
+- **Pipeline**: `StandardScaler` → `SMOTE (k_neighbors=4)` → `VotingClassifier`
+  (soft voting, weights `[LR=1, RF=2, SVM=1]`)
+- **Reported accuracy**: 99% (paper) — see the project's Replication and
+  Improvisation reports for a full breakdown, including the discovery that
+  84.8% of the raw dataset consisted of duplicate rows, and the honest
+  post-deduplication accuracy of 95.65%
+
+---
+
+## Project structure
+
+```
+lung-cancer-api/
+├── api/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI app, /predict and /health endpoints
+│   └── schema.py             # Pydantic input/output models
+├── frontend/
+│   └── app.py                 # Streamlit UI
+├── model/
+│   ├── lung_model.sav          # trained Voting Ensemble pipeline
+│   └── lung_selector.sav       # trained feature selector
+├── Dockerfile.api
+├── Dockerfile.frontend
+├── docker-compose.yml
+├── pyproject.toml              # FastAPI Cloud deploy config
+├── requirements.txt            # API dependencies (Docker / local dev)
+└── README.md
+```
+
+---
+
+## Running locally
+
+### Without Docker
 
 ```bash
 python -m venv venv
@@ -24,86 +107,128 @@ pip install -r requirements.txt
 uvicorn api.main:app --reload --port 8000
 
 # Terminal 2 — frontend
-streamlit run frontend/app.py
+cd frontend
+pip install streamlit requests plotly
+streamlit run app.py
 ```
 
-Open http://127.0.0.1:8000/docs to test the API directly, and
-http://localhost:8501 for the UI.
+- API docs: http://127.0.0.1:8000/docs
+- Frontend: http://localhost:8501
 
-## 3. Run with Docker Compose (recommended before deploying)
+### With Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-- API: http://localhost:8000/docs
-- Frontend: http://localhost:8501
+Same ports as above. This is the closest local approximation to how the
+containers actually run in production.
 
-This proves your Docker images work exactly like they will in production.
-
-## 4. Deploy for free
-
-### Backend → Render
-1. Push this repo to GitHub.
-2. On [render.com](https://render.com) → New → Web Service → connect your repo.
-3. Environment: **Docker**. Dockerfile path: `Dockerfile.api`.
-4. Instance type: Free.
-5. Deploy. Copy the resulting URL, e.g. `https://lung-cancer-api.onrender.com`.
-
-> Free Render web services sleep after ~15 min of inactivity and take
-> ~30-60s to wake on the next request — fine for a demo/portfolio project.
-
-### Frontend → Hugging Face Spaces
-1. Create a new Space at [huggingface.co/spaces](https://huggingface.co/new-space).
-2. SDK: **Docker**.
-3. Upload `frontend/app.py`, `requirements.txt`, and `Dockerfile.frontend`
-   (rename to `Dockerfile` in the Space, HF Spaces expects that name).
-4. In the Space settings, add a secret/variable: `API_URL` =
-   your Render URL from above.
-5. The Space builds and serves your Streamlit app automatically, no credit
-   card required.
-
-### Optional: Docker Hub
-```bash
-docker build -f Dockerfile.api -t yourusername/lung-cancer-api .
-docker push yourusername/lung-cancer-api
-```
-Useful if you want Render/Railway to pull a prebuilt image instead of
-building from source.
-
-## 5. Extending to Dataset 1 (multi-class Low/Medium/High)
-
-The same pattern applies:
-- Add `lung_model_ds1.sav` / `lung_selector_ds1.sav` to `model/`.
-- Add a second Pydantic schema with DS1's 23 clinical features.
-- Add a `/predict/ds1` route in `api/main.py` mirroring `/predict`.
-- Add a second tab or toggle in the Streamlit app.
+---
 
 ## API reference
 
-**POST /predict**
+**POST `/predict`**
+
 ```json
 {
-  "GENDER": "M", "AGE": 62, "SMOKING": 2, "YELLOW_FINGERS": 2,
-  "ANXIETY": 1, "PEER_PRESSURE": 1, "CHRONIC DISEASE": 2,
-  "FATIGUE": 2, "ALLERGY": 1, "WHEEZING": 2, "ALCOHOL CONSUMING": 2,
-  "COUGHING": 2, "SHORTNESS OF BREATH": 2, "SWALLOWING DIFFICULTY": 1,
-  "CHEST PAIN": 2
+  "Age": 45, "Gender": 1, "Air Pollution": 6, "Alcohol use": 5,
+  "Dust Allergy": 6, "OccuPational Hazards": 5, "Genetic Risk": 4,
+  "chronic Lung Disease": 4, "Balanced Diet": 3, "Obesity": 4,
+  "Smoking": 6, "Passive Smoker": 5, "Chest Pain": 5,
+  "Coughing of Blood": 4, "Fatigue": 5, "Weight Loss": 3,
+  "Shortness of Breath": 5, "Wheezing": 4, "Swallowing Difficulty": 3,
+  "Clubbing of Finger Nails": 4, "Frequent Cold": 3, "Dry Cough": 4,
+  "Snoring": 3
 }
 ```
+
 Response:
 ```json
 {
-  "prediction": "YES",
-  "probability_cancer": 0.94,
-  "probability_no_cancer": 0.06,
-  "model_version": "voting-ensemble-v1"
+  "prediction": "Low",
+  "probability_low": 0.8499,
+  "probability_medium": 0.1012,
+  "probability_high": 0.0489,
+  "model_version": "voting-ensemble-ds1-v1"
 }
 ```
 
-**GET /health** — confirms the model loaded correctly, useful for
-debugging a failed deploy.
+**GET `/health`** — confirms the model and selector loaded correctly.
+
+---
+
+## Deployment
+
+### Backend — FastAPI Cloud
+
+```bash
+pip install "fastapi[standard]" fastapi-cloud-cli
+fastapi deploy
+```
+
+Key config that makes this work, in `pyproject.toml`:
+- `requires-python = "==3.12.*"` — pinned to match the wheels available for
+  `numpy==1.26.4` / `pandas==2.2.2`; an open `>=3.12` range let the platform
+  pick Python 3.14, which has no prebuilt wheels for those pins and fails to
+  compile from source without a C++ toolchain
+- `[tool.setuptools.packages.find] include = ["api*"]` — without this,
+  `setuptools` sees `api/`, `model/`, and `frontend/` as ambiguous top-level
+  packages and refuses to build
+- `[tool.fastapi] entrypoint = "api.main:app"` — the app lives at `api/main.py`,
+  not one of the auto-detected default locations (`main.py`, `app.py`,
+  `app/main.py`)
+
+### Frontend — Streamlit Community Cloud
+
+1. Push to GitHub
+2. [share.streamlit.io](https://share.streamlit.io) → New app → select this repo
+3. Main file path: `frontend/app.py`
+4. **Python version: 3.12** (same reasoning as above — avoids wheel-availability
+   issues with newer Python versions)
+5. Secrets:
+   ```toml
+   API_URL = "https://lung-cancer-api.fastapicloud.dev"
+   ```
+
+### Docker Hub
+
+See the section below for the full push walkthrough.
+
+---
+
+## Lessons learned during deployment
+
+This project's deployment surfaced a real chain of environment-consistency
+bugs worth documenting:
+
+1. **scikit-learn version drift** — the `.sav` model files were pickled with
+   `scikit-learn==1.8.0`, but the serving environment had `1.4.2` installed,
+   causing `AttributeError: 'LogisticRegression' object has no attribute
+   'multi_class'` at inference time. Fix: pin the exact training-time version
+   everywhere the model is loaded.
+2. **Python version drift** — cloud platforms defaulting to the newest
+   available Python (3.14) broke source builds for pinned older package
+   versions lacking prebuilt wheels. Fix: pin `requires-python` explicitly.
+3. **Ambiguous package discovery** — `setuptools` auto-discovery doesn't know
+   which top-level folder is "the package" when a repo also contains data and
+   frontend folders. Fix: explicit `packages.find` config.
+
+None of these were bugs in the model or the application code — all three were
+environment/tooling mismatches between where the model was trained and where
+it was ultimately served.
+
+---
 
 ## Disclaimer
-This is an academic/portfolio project. Predictions are statistical
-outputs from a symptom-survey model, not a medical diagnosis.
+
+This is an academic/portfolio project built on a peer-reviewed research
+replication. Predictions are statistical outputs from a symptom/exposure
+survey model, not a clinical diagnosis. Consult a physician for medical
+concerns.
+
+---
+
+## Author
+
+**Ahmad Abdullah**
